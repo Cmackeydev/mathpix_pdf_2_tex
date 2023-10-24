@@ -1,0 +1,3 @@
+argparse
+configparser
+alive_progress

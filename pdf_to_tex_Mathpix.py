@@ -2,6 +2,7 @@
 #Abstract : This script helps to convert a pdf into latex format using the mathpix api
 
 from argparse import ArgumentParser
+from configparser import ConfigParser
 from alive_progress import alive_bar
 import time
 from os import path,listdir
@@ -53,6 +54,7 @@ def checking_conv(data_obj):
     return False
 
 def download_zip(data_obj,pdf):
+    #print("mnn download la ")
     request=requests.get(f"https://api.mathpix.com/v3/pdf/{data_obj['pdf_id']}.tex",headers=header)
     with open(pdf.replace('.pdf','.tex.zip'),'wb') as file:
         file.write(request.content)
@@ -81,13 +83,13 @@ def main():
 
 if __name__=="__main__":
     parser  = ArgumentParser()
-    parser.add_argument("APP_ID",help='The APP_ID provided by mathpix')
-    parser.add_argument("APP_KEY" , help="The APP_KEY provided by mathpix")
+    config = ConfigParser()
+    config.read('config.ini')
     parser.add_argument("-p",help='Path of the pdf file or the folder of pdf(s) you want to convert')
     args = parser.parse_args()
     header = {
-           "app_id": args.APP_ID,
-            "app_key": args.APP_KEY, 
+           "app_id": config['Credentials']['APP_ID'],
+            "app_key": config['Credentials']['APP_KEY'], 
             }
 
     main()

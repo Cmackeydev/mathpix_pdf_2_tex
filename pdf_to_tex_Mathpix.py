@@ -54,7 +54,8 @@ def pdf_to_convert(access_path):
     else:
         path_of_files = [directory+'/'+obj for obj in listdir(directory)]
         list_of_files = list(filter(is_file,path_of_files))
-    return list(filter(is_pdf,list_of_files))
+    list_of_files = list(filter(is_pdf,list_of_files))
+    return list_of_files
 
 def convert_to_tex(obj):
     options = {
@@ -81,6 +82,11 @@ def download_zip(data_obj,pdf):
 def main():
     list_of_pdf = pdf_to_convert(args.p)
     quantity = len(list_of_pdf)
+    if not quantity:
+        print(""" no pdf found : The provided path should be a pdf or a floder of pdf(s).
+              If any path are provided it scans in the current directory for possible pdf.
+                """)
+        return 
     failed_conversion = []
 
     with alive_bar(quantity) as bar:

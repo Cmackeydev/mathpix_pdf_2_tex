@@ -43,6 +43,9 @@ def checking_status(data_obj):
 def checking_conv(data_obj):
     return request_checker(f"{endpoint_base}/converter/{data_obj['pdf_id']}")
 
+def delete_on_server(data_obj):
+    requests.delete(f"{endpoint_base}/pdf/{data_obj['pdf_id']}",headers=header)
+
 def pdf_to_convert(access_path):
     if not access_path : directory = '.'
     elif path.isdir(access_path) : directory= access_path
@@ -85,7 +88,9 @@ def main():
             conv_data  = convert_to_tex(pdf)
             if pdf_sent(conv_data):
                 if checking_status(conv_data):
-                    if checking_conv(conv_data): download_zip(conv_data,pdf)
+                    if checking_conv(conv_data): 
+                        download_zip(conv_data,pdf)
+                        delete_on_server(conv_data)
                     else:failed_conversion.append(pdf)
                 else:failed_conversion.append(pdf)
             else: failed_conversion.append(pdf)

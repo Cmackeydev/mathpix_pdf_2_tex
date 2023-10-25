@@ -9,6 +9,7 @@ from os import path,listdir
 from re import search
 import requests
 import json
+import traceback
 
 def is_file(obj):
     return path.isfile(obj)
@@ -16,77 +17,92 @@ def is_file(obj):
 def is_pdf(obj):
     return search('\.pdf$',obj)
 
+def pdf_sent(request_rep):
+    if request_rep is None : return False
+    if 'pdf_id' in request_rep: return True
+    return False
+
+def request_status(request_rep):
+    if 'status' not in request_rep:return None
+    if request_rep['status']=='completed':return True
+    elif request_rep['status']=='error':return False
+    return None
+
+def request_checker(request_str):
+    for i in range(10):
+        time.sleep(1)
+        try:
+            request =requests.get(f"{request_str}",headers=header) 
+            if request_status(json.loads(request.text.encode('utf8'))):return True
+        except Exception:return False
+    return False
+
+def checking_status(data_obj):
+        return request_checker(f"{endpoint_base}/pdf/{data_obj['pdf_id']}")
+
+def checking_conv(data_obj):
+    return request_checker(f"{endpoint_base}/converter/{data_obj['pdf_id']}")
+
+def pdf_to_convert(access_path):
+    if not access_path : directory = '.'
+    elif path.isdir(access_path) : directory= access_path
+    else : directory = None
+    if not directory: list_of_files = [access_path]
+    else:
+        path_of_files = [directory+'/'+obj for obj in listdir(directory)]
+        list_of_files = list(filter(is_file,path_of_files))
+    return list(filter(is_pdf,list_of_files))
+
 def convert_to_tex(obj):
     options = {
         "conversion_formats": {"docx": False, "tex.zip": True},
         "math_inline_delimiters": ["$", "$"],
         "rm_spaces": True
                 }
-    request = requests.post('https://api.mathpix.com/v3/pdf',headers=header,data={"options_json":json.dumps(options)},files={"file":open(obj,"rb")})
-    data = json.loads(request.text.encode('utf8'))
-    return data
+    try:
+        request = requests.post(f'{endpoint_base}/pdf',headers=header,data={"options_json":json.dumps(options)},files={"file":open(obj,"rb")})
+    except Exception:
+        return None
+    return json.loads(request.text.encode('utf8'))
 
-def checking_status(data_obj):
-    if 'pdf_id' in data_obj:
-        
-        
-        i = 0
-        while i<10:
-            request =requests.get(f"https://api.mathpix.com/v3/pdf/{data_obj['pdf_id']}",headers=header) 
-            response_data = json.loads(request.text.encode('utf8')) 
-            if "status" in response_data:
-                if response_data['status'] == "completed": return True
-                elif response_data['status']=='error':return False
-                else: pass
-            else: return False
-            i +=1
-        return False
 
-def checking_conv(data_obj):
-    i = 0
-    while(i<10):
-        request =requests.get(f"https://api.mathpix.com/v3/converter/{data_obj['pdf_id']}",headers=header)
-        response_data =json.loads(request.text.encode('utf8'))
-        if 'status' in response_data:
-            if response_data['status']=="completed": return True
-            elif response_data['status']=="error":return False
-    
-    return False
 
 def download_zip(data_obj,pdf):
-    #print("mnn download la ")
-    request=requests.get(f"https://api.mathpix.com/v3/pdf/{data_obj['pdf_id']}.tex",headers=header)
-    with open(pdf.replace('.pdf','.tex.zip'),'wb') as file:
-        file.write(request.content)
+    try:
+        request=requests.get(f"{endpoint_base}/pdf/{data_obj['pdf_id']}.tex",headers=header)
+        with open(pdf.replace('.pdf','.tex.zip'),'wb') as file:
+            file.write(request.content)
+        return True
+    except Exception: return False
     
-
 def main():
-    if not args.p : directory = '.'
-    elif path.isdir(args.p) : directory= args.p
-    else : directory = None
-    if not directory: list_of_files = [args.p]
-    else:
-        path_of_files = [directory+'/'+obj for obj in listdir(directory)]
-        list_of_files = list(filter(is_file,path_of_files))
-        
-    list_of_pdf = list(filter(is_pdf,list_of_files))
-
+    list_of_pdf = pdf_to_convert(args.p)
     quantity = len(list_of_pdf)
+    failed_conversion = []
 
     with alive_bar(quantity) as bar:
         for pdf in list_of_pdf:
             conv_data  = convert_to_tex(pdf)
-            if checking_status(conv_data):
-                if checking_conv(conv_data): download_zip(conv_data,pdf)
-
+            if pdf_sent(conv_data):
+                if checking_status(conv_data):
+                    if checking_conv(conv_data): download_zip(conv_data,pdf)
+                    else:failed_conversion.append(pdf)
+                else:failed_conversion.append(pdf)
+            else: failed_conversion.append(pdf)
             bar()
+
+    print('\t\t Conversion Status')
+    for pdf in list_of_pdf:
+        status = "failed" if pdf in failed_conversion else "succed"
+        print(f" \t\t\t {pdf} : {status}")
 
 if __name__=="__main__":
     parser  = ArgumentParser()
-    config = ConfigParser()
-    config.read('config.ini')
     parser.add_argument("-p",help='Path of the pdf file or the folder of pdf(s) you want to convert')
     args = parser.parse_args()
+    config = ConfigParser()
+    config.read('config.ini')
+    endpoint_base = config['API']['endpoint']
     header = {
            "app_id": config['Credentials']['APP_ID'],
             "app_key": config['Credentials']['APP_KEY'], 

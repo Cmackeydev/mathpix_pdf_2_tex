@@ -13,11 +13,11 @@ Im not a programming guru neither a python guru so the project is prone to error
 ### Creating Your virtual environment
 As any new python3 project you shoud start by creating a virtualenv to not mess with system packages
 
-```python3 -m venv```
+```python3 -m venv venv```
 
 Now you should activate it for further manipulations
 
-`cd venv ; source ./bin/activate`
+`source ./venv/bin/activate`
 
 ### Installing requirements
 Install the required libraries via the command
